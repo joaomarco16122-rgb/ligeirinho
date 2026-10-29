@@ -52,6 +52,10 @@ try {
 }
 const tsconfig = JSON.parse(await readFile(path.join(project, 'tsconfig.json'), 'utf8'));
 tsconfig.extends = './tsconfig.base.json';
+// The export is a self-contained app: never typecheck tests or server-only source
+// from the original project. Keep full-project checks in the regular CI workflow.
+tsconfig.include = ['next-env.d.ts', 'app/**/*.ts', 'app/**/*.tsx', 'components/**/*.ts', 'components/**/*.tsx', 'lib/**/*.ts', 'lib/**/*.tsx', '.next/types/**/*.ts'];
+tsconfig.exclude = ['node_modules', '**/*.test.ts', '**/*.test.tsx', '**/*.spec.ts', '**/*.spec.tsx'];
 await writeFile(path.join(staging, 'tsconfig.json'), `${JSON.stringify(tsconfig, null, 2)}\n`);
 await cp(
   path.resolve(project, '../../tsconfig.base.json'),
