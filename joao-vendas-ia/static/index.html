@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#101b30">
+  <meta name="description" content="João Vendas IA — painel privado para seu vendedor virtual no WhatsApp">
+  <title>João Vendas IA — Painel</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <section id="login" class="login-screen hide">
+    <div class="login-art"><span class="auth-eyebrow">PLATAFORMA DE VENDAS INTELIGENTE</span><div class="hero-brand">JV<span class="hero-brand-dot">•</span></div><h1>Suas vendas.<br><em>Sempre em movimento.</em></h1><p>Um agente de IA exclusivo para conversar com clientes, apresentar ofertas e apoiar suas vendas no WhatsApp.</p><div class="login-art-foot">✦ Inteligência para vender melhor</div></div>
+    <div class="login-side"><div class="login-card"><div class="login-small-logo">✧ &nbsp;JOÃO VENDAS <b>IA</b></div><h2>Bem-vindo de volta</h2><p>Entre para administrar o seu vendedor virtual.</p><form id="loginForm"><label>E-mail de administrador<input id="loginEmail" type="email" autocomplete="username" placeholder="seu@email.com" required></label><label>Senha<input id="loginPassword" type="password" autocomplete="current-password" placeholder="Sua senha" required></label><button class="btn primary full" type="submit">Entrar no meu painel <span>→</span></button><div class="alert hide" id="loginError"></div></form><small>Seus dados e credenciais são protegidos no servidor.</small></div></div>
+  </section>
+  <section id="shell" class="shell hide">
+    <aside id="sidebar" class="sidebar">
+      <div class="brand"><div class="brand-icon">✦</div><div><b>JOÃO VENDAS <span>IA</span></b><small>Central inteligente de vendas</small></div></div>
+      <div class="nav-caption">MENU PRINCIPAL</div>
+      <nav id="nav">
+        <button data-view="dashboard" class="nav-btn active"><span class="nav-icon">◫</span> Visão geral</button>
+        <button data-view="products" class="nav-btn"><span class="nav-icon">▣</span> Meus produtos</button>
+        <button data-view="simulate" class="nav-btn"><span class="nav-icon">✧</span> Testar a IA</button>
+        <button data-view="inbox" class="nav-btn"><span class="nav-icon">☏</span> Conversas</button>
+        <div class="nav-caption sub">CONFIGURAÇÕES</div>
+        <button data-view="whatsapp" class="nav-btn"><span class="nav-icon">◎</span> WhatsApp</button>
+        <button data-view="settings" class="nav-btn"><span class="nav-icon">⚙</span> Personalização</button>
+      </nav>
+      <div class="sidebar-bottom"><div class="side-help"><span>✦ SEU AGENTE EXCLUSIVO</span><p>Você escolhe o que vender. A IA ajuda a encontrar a oferta certa.</p></div><button id="logoutBtn" class="nav-btn logout"><span class="nav-icon">⇥</span> Sair da conta</button></div>
+    </aside>
+    <div class="content-area">
+      <header class="topbar"><button id="mobileMenu" class="menu-button" aria-label="Abrir menu">☰</button><div class="breadcrumb">PAINEL <span>/</span> <strong id="breadcrumbText">Visão geral</strong></div><div class="top-right"><div class="status-pill"><i id="statusDot"></i><span id="statusText">Verificando integrações</span></div><div class="avatar">JM</div></div></header>
+      <main id="content" class="main-content"></main>
+      <footer class="footer">João Vendas IA • Um painel exclusivo para o seu negócio <span>Protótipo funcional • Conexão oficial pela API Meta</span></footer>
+    </div>
+  </section>
+  <div id="toast" class="toast hide" role="status"></div>
+  <script src="/static/app.js"></script>
+</body>
+</html>
