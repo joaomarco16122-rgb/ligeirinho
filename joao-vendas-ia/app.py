@@ -198,6 +198,7 @@ def me(request: Request, admin: Admin = Depends(admin_required)):
 def status(_: Admin = Depends(admin_required)):
     return {'whatsapp': all(os.getenv(x) for x in ['WHATSAPP_VERIFY_TOKEN','WHATSAPP_APP_SECRET','WHATSAPP_ACCESS_TOKEN','WHATSAPP_PHONE_NUMBER_ID']),
             'ai': bool(os.getenv('OPENAI_API_KEY')), 'webhook': PUBLIC_BASE_URL + '/webhook/whatsapp',
+            'verify_token': os.getenv('WHATSAPP_VERIFY_TOKEN', ''),
             'meta_setup': 'https://developers.facebook.com/apps/', 'demo_only': not all(os.getenv(x) for x in ['OPENAI_API_KEY','WHATSAPP_ACCESS_TOKEN']),
             'storage': 'temporario' if DATABASE_URL.startswith('sqlite:') else 'postgresql'}
 
