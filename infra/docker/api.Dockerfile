@@ -48,8 +48,8 @@ RUN mkdir -p /runtime/dist /runtime/prisma && \
     cp -a services/api/dist/. /runtime/dist/ && \
     cp -a services/api/prisma/. /runtime/prisma/ && \
     cd services/api && \
-    node -e 'const fs=require("node:fs"),path=require("node:path");const source=require.resolve(".prisma/client/package.json",{paths:[require.resolve("@prisma/client/package.json")]});fs.mkdirSync("/runtime/node_modules/.prisma",{recursive:true});fs.cpSync(path.dirname(source),"/runtime/node_modules/.prisma/client",{recursive:true});' && \
-    node -e 'const client=require("/runtime/node_modules/@prisma/client");if(!client.PrismaClient)throw new Error("Prisma client missing");require("/runtime/node_modules/argon2");'
+    node -e 'const fs=require("node:fs"),path=require("node:path");const source=require.resolve(".prisma/client/package.json",{paths:[require.resolve("@prisma/client/package.json")]});const target=require.resolve(".prisma/client/package.json",{paths:[require.resolve("/runtime/node_modules/@prisma/client/package.json")]});fs.cpSync(path.dirname(source),path.dirname(target),{recursive:true});' && \
+    node -e 'const client=require("/runtime/node_modules/@prisma/client");const db=new client.PrismaClient();db.$disconnect();require("/runtime/node_modules/argon2");'
 
 # One-shot migration container uses the CLI retained in the build stage.
 # Grant its database identity migration privileges only for this step.
