@@ -109,8 +109,13 @@ def startup():
         email = os.getenv('ADMIN_EMAIL','').strip().lower()
         password = os.getenv('ADMIN_PASSWORD','')
         if email and '@' in email and len(password) >= 12:
-            if not db.scalar(select(Admin.id).where(Admin.email == email)):
+            admin = db.scalar(select(Admin).where(Admin.email == email))
+            if not admin:
                 db.add(Admin(email=email, pwd_hash=pwd_hash(password)))
+                db.commit()
+            elif not valid_pwd(password, admin.pwd_hash):
+                # A variável ADMIN_PASSWORD no Render permite redefinir o acesso sem expor segredos no chat.
+                admin.pwd_hash = pwd_hash(password)
                 db.commit()
 
 
