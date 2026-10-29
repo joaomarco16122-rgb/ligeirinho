@@ -105,6 +105,13 @@ def startup():
         if not db.get(Settings, 1):
             db.add(Settings(id=1))
             db.commit()
+        # Bootstrap inicial: não redefine uma senha já existente em reinicializações.
+        email = os.getenv('ADMIN_EMAIL','').strip().lower()
+        password = os.getenv('ADMIN_PASSWORD','')
+        if email and '@' in email and len(password) >= 12:
+            if not db.scalar(select(Admin.id).where(Admin.email == email)):
+                db.add(Admin(email=email, pwd_hash=pwd_hash(password)))
+                db.commit()
 
 
 def db_dep():
