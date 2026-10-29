@@ -186,7 +186,8 @@ def me(request: Request, admin: Admin = Depends(admin_required)):
 def status(_: Admin = Depends(admin_required)):
     return {'whatsapp': all(os.getenv(x) for x in ['WHATSAPP_VERIFY_TOKEN','WHATSAPP_APP_SECRET','WHATSAPP_ACCESS_TOKEN','WHATSAPP_PHONE_NUMBER_ID']),
             'ai': bool(os.getenv('OPENAI_API_KEY')), 'webhook': PUBLIC_BASE_URL + '/webhook/whatsapp',
-            'meta_setup': 'https://developers.facebook.com/apps/', 'demo_only': not all(os.getenv(x) for x in ['OPENAI_API_KEY','WHATSAPP_ACCESS_TOKEN'])}
+            'meta_setup': 'https://developers.facebook.com/apps/', 'demo_only': not all(os.getenv(x) for x in ['OPENAI_API_KEY','WHATSAPP_ACCESS_TOKEN']),
+            'storage': 'temporario' if DATABASE_URL.startswith('sqlite:') else 'postgresql'}
 
 @app.get('/api/dashboard')
 def dashboard(_: Admin = Depends(admin_required), db: Session = Depends(db_dep)):
@@ -210,6 +211,8 @@ def get_settings(_: Admin = Depends(admin_required), db: Session = Depends(db_de
 
 @app.put('/api/settings')
 def put_settings(payload: SettingsPayload, _: Admin = Depends(admin_required), db: Session = Depends(db_dep)):
+    if payload.enabled and (DATABASE_URL.startswith('sqlite:') or not all(os.getenv(k) for k in ['OPENAI_API_KEY','WHATSAPP_VERIFY_TOKEN','WHATSAPP_APP_SECRET','WHATSAPP_ACCESS_TOKEN','WHATSAPP_PHONE_NUMBER_ID'])):
+        raise HTTPException(400,'Para ativar atendimento real, configure PostgreSQL persistente, OpenAI e todas as credenciais Meta.')
     s = db.get(Settings,1)
     for key, value in payload.model_dump().items(): setattr(s, key, value)
     s.updated_at = datetime.now(timezone.utc)
