@@ -34,6 +34,9 @@ for (const directory of ['app', 'components', 'lib']) {
     recursive: true,
     filter: (source) => {
       const auth = path.join(project, 'app', 'auth');
+      // Tests import server-only routes intentionally omitted from the static export.
+      // Exclude them from this isolated build, but keep them in the main project/CI.
+      if (/\\.test\\.[cm]?[jt]sx?$/.test(source)) return false;
       return source !== auth && !source.startsWith(`${auth}${path.sep}`);
     },
   });
