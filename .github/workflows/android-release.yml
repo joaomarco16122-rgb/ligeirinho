@@ -1,0 +1,173 @@
+name: APKs Android assinados
+on:
+  workflow_dispatch:
+    inputs:
+      api_url:
+        description: API HTTPS pública operacional, terminando em /api/v1
+        required: true
+        type: string
+      version_code:
+        description: Código Android crescente, entre 1 e 2100000000
+        required: true
+        type: string
+      publish_release:
+        description: Publicar os dois APKs verificados em uma nova GitHub Release
+        required: true
+        default: false
+        type: boolean
+permissions:
+  contents: read
+concurrency:
+  group: android-release
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [entregador, estabelecimento]
+    env:
+      EXPO_PUBLIC_API_URL: ${{ inputs.api_url }}
+      LIGEIRINHO_ANDROID_VERSION_CODE: ${{ inputs.version_code }}
+      LIGEIRINHO_RELEASE: '1'
+      EXPO_NO_TELEMETRY: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - name: Validar destino, versão e presença de assinatura antes de instalar
+        env:
+          ANDROID_RELEASE_KEYSTORE_BASE64: ${{ secrets.ANDROID_RELEASE_KEYSTORE_BASE64 }}
+          ANDROID_RELEASE_STORE_PASSWORD: ${{ secrets.ANDROID_RELEASE_STORE_PASSWORD }}
+          ANDROID_RELEASE_KEY_ALIAS: ${{ secrets.ANDROID_RELEASE_KEY_ALIAS }}
+          ANDROID_RELEASE_KEY_PASSWORD: ${{ secrets.ANDROID_RELEASE_KEY_PASSWORD }}
+        run: |
+          python3 - <<'PY'
+          import base64, os, runpy
+          release = runpy.run_path('scripts/build-android-release.py')
+          api_url = release['validate_api_url'](os.environ.get('EXPO_PUBLIC_API_URL'))
+          release['validate_version'](os.environ.get('LIGEIRINHO_ANDROID_VERSION_CODE'))
+          required = ('ANDROID_RELEASE_KEYSTORE_BASE64', 'ANDROID_RELEASE_STORE_PASSWORD', 'ANDROID_RELEASE_KEY_ALIAS', 'ANDROID_RELEASE_KEY_PASSWORD')
+          if any(not os.environ.get(name) for name in required):
+              raise SystemExit('Configure os quatro secrets ANDROID_RELEASE_* de uma assinatura persistente antes de compilar.')
+          try:
+              data = base64.b64decode(os.environ['ANDROID_RELEASE_KEYSTORE_BASE64'], validate=True)
+          except ValueError:
+              raise SystemExit('Keystore base64 inválido.') from None
+          if not data or len(data) > 10 * 1024 * 1024:
+              raise SystemExit('Keystore ausente ou inesperadamente grande.')
+          release['verify_backend'](api_url)
+          print('API confirmou saúde/configuração; assinatura presente. Login externo ainda requer homologação.')
+          PY
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.20.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Verificar certificado antes de baixar o SDK e as dependências
+        env:
+          RELEASE_APP: ${{ matrix.app }}
+          ANDROID_RELEASE_KEYSTORE_BASE64: ${{ secrets.ANDROID_RELEASE_KEYSTORE_BASE64 }}
+          ANDROID_RELEASE_STORE_PASSWORD: ${{ secrets.ANDROID_RELEASE_STORE_PASSWORD }}
+          ANDROID_RELEASE_KEY_ALIAS: ${{ secrets.ANDROID_RELEASE_KEY_ALIAS }}
+          ANDROID_RELEASE_KEY_PASSWORD: ${{ secrets.ANDROID_RELEASE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          export ANDROID_RELEASE_KEYSTORE="$RUNNER_TEMP/ligeirinho-signing-check.keystore"
+          cleanup() { rm -f -- "$ANDROID_RELEASE_KEYSTORE"; }
+          trap cleanup EXIT
+          python3 - <<'PY'
+          import base64, os
+          data = base64.b64decode(os.environ['ANDROID_RELEASE_KEYSTORE_BASE64'], validate=True)
+          descriptor = os.open(os.environ['ANDROID_RELEASE_KEYSTORE'], os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+          with os.fdopen(descriptor, 'wb') as output:
+              output.write(data)
+          PY
+          unset ANDROID_RELEASE_KEYSTORE_BASE64
+          python3 scripts/build-android-release.py "$RELEASE_APP" --check-only
+      - uses: android-actions/setup-android@v3
+      - name: Instalar toolchain Android requerida
+        run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0' 'build-tools;35.0.0' 'ndk;27.1.12297006' 'cmake;3.22.1'
+      - run: pnpm install --frozen-lockfile
+      - name: Compilar e verificar APK standalone com assinatura persistente
+        env:
+          RELEASE_APP: ${{ matrix.app }}
+          ANDROID_RELEASE_KEYSTORE_BASE64: ${{ secrets.ANDROID_RELEASE_KEYSTORE_BASE64 }}
+          ANDROID_RELEASE_STORE_PASSWORD: ${{ secrets.ANDROID_RELEASE_STORE_PASSWORD }}
+          ANDROID_RELEASE_KEY_ALIAS: ${{ secrets.ANDROID_RELEASE_KEY_ALIAS }}
+          ANDROID_RELEASE_KEY_PASSWORD: ${{ secrets.ANDROID_RELEASE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          export ANDROID_RELEASE_KEYSTORE="$RUNNER_TEMP/ligeirinho-release.keystore"
+          cleanup() { rm -f -- "$ANDROID_RELEASE_KEYSTORE"; }
+          trap cleanup EXIT
+          python3 - <<'PY'
+          import base64, os
+          data = base64.b64decode(os.environ['ANDROID_RELEASE_KEYSTORE_BASE64'], validate=True)
+          descriptor = os.open(os.environ['ANDROID_RELEASE_KEYSTORE'], os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+          with os.fdopen(descriptor, 'wb') as output:
+              output.write(data)
+          PY
+          unset ANDROID_RELEASE_KEYSTORE_BASE64
+          python3 scripts/build-android-release.py "$RELEASE_APP"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ligeirinho-${{ matrix.app }}-apk-${{ github.run_id }}
+          path: .local/artifacts/android/*
+          if-no-files-found: error
+          retention-days: 30
+  publish:
+    if: ${{ inputs.publish_release }}
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      RELEASE_VERSION_CODE: ${{ inputs.version_code }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: ligeirinho-*-apk-${{ github.run_id }}
+          path: release-assets
+          merge-multiple: true
+      - name: Conferir artefatos e publicar ambos a partir do commit compilado
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          version = os.environ['RELEASE_VERSION_CODE']
+          for app in ('entregador', 'estabelecimento'):
+              apk = Path('release-assets') / f'ligeirinho-{app}-v{version}.apk'
+              metadata = json.loads(apk.with_suffix('.apk.json').read_text())
+              if metadata['sourceRevision'] != os.environ['GITHUB_SHA'] or metadata['app'] != app or metadata['versionCode'] != int(version):
+                  raise SystemExit('Artefato não corresponde ao commit/app/versão selecionado.')
+              if hashlib.file_digest(apk.open('rb'), 'sha256').hexdigest() != metadata['apkSha256']:
+                  raise SystemExit('Checksum do APK não corresponde ao build verificado.')
+          PY
+          release_tag="android-v${RELEASE_VERSION_CODE}"
+          if [ -n "$(git ls-remote --tags origin "refs/tags/$release_tag" "refs/tags/$release_tag^{}")" ]; then
+            echo 'A tag já existe; use um código de versão novo. Nenhum artefato existente foi substituído.' >&2
+            exit 1
+          fi
+          cat > "$RUNNER_TEMP/android-release-notes.md" <<'NOTES'
+          APKs independentes do Metro, com assinatura e JavaScript incorporado verificados no build.
+          O backend respondeu com banco/Redis prontos e configuração de autenticação disponível no momento da compilação.
+          Isso não substitui homologação de login e atendimento em aparelhos Android reais.
+          NOTES
+          gh release create "$release_tag" release-assets/*.apk release-assets/*.sha256 release-assets/*.json \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" --title "Ligeirinho Android $RELEASE_VERSION_CODE" \
+            --notes-file "$RUNNER_TEMP/android-release-notes.md"

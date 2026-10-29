@@ -1,0 +1,48 @@
+{
+  "name": "@ligeirinho/api",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "tsc -p tsconfig.json && node dist/main.js",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/main.js",
+    "typecheck": "tsc --noEmit",
+    "lint": "tsc --noEmit",
+    "test": "vitest run",
+    "test:integration": "vitest run test/integration.test.ts",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate deploy",
+    "bootstrap": "tsc -p tsconfig.json && node dist/bootstrap.js"
+  },
+  "dependencies": {
+    "@nestjs/common": "^11.1.9",
+    "@nestjs/core": "^11.1.9",
+    "@nestjs/platform-express": "^11.1.9",
+    "@nestjs/websockets": "^11.1.9",
+    "@nestjs/platform-socket.io": "^11.1.9",
+    "@nestjs/swagger": "^11.2.1",
+    "@nestjs/jwt": "^11.0.1",
+    "@prisma/client": "^6.19.0",
+    "argon2": "^0.44.0",
+    "bullmq": "^5.63.0",
+    "ioredis": "^5.8.2",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2",
+    "socket.io": "^4.8.1",
+    "helmet": "^8.1.0",
+    "zod": "^4.1.12",
+    "dotenv": "^17.2.3",
+    "undici": "^7.16.0",
+    "@aws-sdk/client-s3": "^3.922.0",
+    "@aws-sdk/s3-presigned-post": "^3.922.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.5",
+    "prisma": "^6.19.0",
+    "tsx": "^4.20.6",
+    "supertest": "^7.1.4",
+    "@types/supertest": "^6.0.3",
+    "vitest": "^3.2.4",
+    "typescript": "^5.9.3"
+  }
+}

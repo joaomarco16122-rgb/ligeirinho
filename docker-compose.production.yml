@@ -1,0 +1,96 @@
+# Optional application containers with EXTERNAL PostgreSQL/Redis.
+# Use a separate protected --env-file; this does not provision TLS or providers.
+name: ligeirinho-production
+services:
+  api:
+    image: ${LIGEIRINHO_API_IMAGE:-ligeirinho-api:local}
+    build:
+      context: .
+      dockerfile: infra/docker/api.Dockerfile
+      target: runtime
+      secrets: [proxy_ca]
+    networks: [application]
+    init: true
+    restart: unless-stopped
+    read_only: true
+    tmpfs: ['/tmp:mode=1777']
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    ports: ['127.0.0.1:3001:3001']
+    environment:
+      NODE_ENV: production
+      AUTH_PROVIDER: supabase
+      SUPABASE_AUTH_ENABLED: '1'
+      SUPABASE_URL: ${SUPABASE_URL:?Configure a URL HTTPS do projeto Supabase Auth}
+      SUPABASE_PUBLISHABLE_KEY: ${SUPABASE_PUBLISHABLE_KEY:?Configure a chave publicável Supabase, nunca service-role}
+      SUPABASE_PROJECT_REF: ${SUPABASE_PROJECT_REF:-}
+      SUPABASE_REQUIRE_EMAIL_CONFIRMED: '1'
+      PORT: '3001'
+      DATABASE_URL: ${DATABASE_URL:?Configure PostgreSQL externo no arquivo protegido de produção}
+      REDIS_URL: ${REDIS_URL:?Configure Redis externo no arquivo protegido de produção}
+      JWT_SECRET: ${JWT_SECRET:?Configure segredo exclusivo da API}
+      CORS_ORIGIN: ${CORS_ORIGIN:?Configure origem HTTPS autorizada}
+      # Trust only the known host→container bridge hop, never a whole subnet.
+      TRUST_LOCAL_PROXY: '0'
+      TRUST_PROXY_ADDRESS: ${PRODUCTION_DOCKER_GATEWAY:-172.30.237.1}
+      MAPS_PROVIDER: google
+      GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY:?Configure Google Routes para produção; modo local é recusado}
+      OFFER_TTL_SECONDS: ${OFFER_TTL_SECONDS:-10}
+      LOCATION_MAX_AGE_SECONDS: ${LOCATION_MAX_AGE_SECONDS:-120}
+      WAIT_MAX_SECONDS: ${WAIT_MAX_SECONDS:-900}
+    stop_grace_period: 30s
+  web:
+    image: ${LIGEIRINHO_WEB_IMAGE:-ligeirinho-web:local}
+    build:
+      context: .
+      dockerfile: infra/docker/web.Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${PUBLIC_API_URL:-/api/v1}
+      secrets: [proxy_ca]
+    networks: [application]
+    init: true
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - '/tmp:mode=1777'
+      - '/app/apps/web/.next/cache:uid=1000,gid=1000,mode=0700'
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    ports: ['127.0.0.1:3000:3000']
+    environment:
+      NODE_ENV: production
+      AUTH_PROVIDER: supabase
+      SUPABASE_AUTH_ENABLED: '1'
+      NODE_USE_ENV_PROXY: '1'
+      NEXT_PUBLIC_SUPABASE_URL: ${SUPABASE_URL:?Configure a URL HTTPS do projeto Supabase Auth}
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${SUPABASE_PUBLISHABLE_KEY:?Configure a chave publicável Supabase, nunca service-role}
+      PORT: '3000'
+    stop_grace_period: 20s
+  migrate:
+    image: ${LIGEIRINHO_MIGRATION_IMAGE:-ligeirinho-migration:local}
+    profiles: [tools]
+    build:
+      context: .
+      dockerfile: infra/docker/api.Dockerfile
+      target: migration
+      secrets: [proxy_ca]
+    networks: [application]
+    init: true
+    restart: 'no'
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    environment:
+      DATABASE_URL: ${MIGRATION_DATABASE_URL:?Configure identidade exclusiva para migrações}
+      PRISMA_HIDE_UPDATE_MESSAGE: '1'
+secrets:
+  # Build-only bundle: no application receives this secret at runtime.
+  proxy_ca:
+    file: ${BUILD_CA_BUNDLE:-/etc/ssl/certs/ca-certificates.crt}
+
+networks:
+  application:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: ${PRODUCTION_DOCKER_SUBNET:-172.30.237.0/24}
+          gateway: ${PRODUCTION_DOCKER_GATEWAY:-172.30.237.1}

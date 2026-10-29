@@ -1,0 +1,110 @@
+name: Validação
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: ligeirinho
+          POSTGRES_DB: ligeirinho_test
+          # Credencial descartável da rede isolada deste job; nunca reutilizar.
+          POSTGRES_PASSWORD: ci_disposable_only
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U ligeirinho -d ligeirinho_test"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s
+          --health-timeout 3s --health-retries 20
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://ligeirinho:ci_disposable_only@localhost:5432/ligeirinho_test?schema=public
+      REDIS_URL: redis://localhost:6379
+      JWT_SECRET: ci_isolated_test_key_only_minimum_32_characters
+      CORS_ORIGIN: http://localhost:3000
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm db:generate
+      - run: pnpm db:migrate
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm --filter @ligeirinho/api test:integration
+        env:
+          RUN_INTEGRATION: '1'
+      - run: pnpm build
+        env:
+          NODE_ENV: production
+      - run: pnpm test:web:auth
+      - run: pnpm test:supabase:security
+        env:
+          POSTGRES_TEST_CONTAINER_ID: ${{ job.services.postgres.id }}
+          POSTGRES_TEST_DATABASE: ligeirinho_test
+      - run: pnpm exec playwright install --with-deps chromium
+      - name: Testes de navegador desktop e mobile
+        shell: bash
+        env:
+          NODE_ENV: production
+          WEB_TEST_URL: http://127.0.0.1:3000
+        run: |
+          WEB_LOG="${RUNNER_TEMP}/ligeirinho-web.log"
+          node apps/web/node_modules/next/dist/bin/next start apps/web \
+            --hostname 127.0.0.1 --port 3000 >"$WEB_LOG" 2>&1 &
+          WEB_PID=$!
+          cleanup() {
+            kill "$WEB_PID" 2>/dev/null || true
+            wait "$WEB_PID" 2>/dev/null || true
+          }
+          trap cleanup EXIT
+          WEB_READY=0
+          for attempt in $(seq 1 60); do
+            if ! kill -0 "$WEB_PID" 2>/dev/null; then
+              cat "$WEB_LOG"
+              exit 1
+            fi
+            if curl --fail --silent --output /dev/null http://127.0.0.1:3000/; then
+              WEB_READY=1
+              break
+            fi
+            sleep 1
+          done
+          if [ "$WEB_READY" != 1 ]; then
+            cat "$WEB_LOG"
+            echo 'A aplicação web não ficou pronta no prazo.' >&2
+            exit 1
+          fi
+          pnpm test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: browser-failure-traces
+          path: test-results/
+          if-no-files-found: ignore
+  dependencies:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - run: pnpm audit --prod --audit-level high

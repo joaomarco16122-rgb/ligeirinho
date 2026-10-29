@@ -1,0 +1,309 @@
+generator client {
+  provider = "prisma-client-js"
+}
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  ESTABLISHMENT
+  COURIER
+}
+enum CourierStatus {
+  OFFLINE
+  AVAILABLE
+  OFFER_PENDING
+  BUSY
+  DISCONNECTED
+}
+enum DeliveryStatus {
+  SOLICITADO
+  BUSCANDO
+  AGUARDANDO
+  OFERTADO
+  ACEITO
+  A_CAMINHO_COLETA
+  NO_ESTABELECIMENTO
+  EM_ENTREGA
+  ENTREGADOR_CONCLUIU
+  AGUARDANDO_CONFIRMACAO_ESTABELECIMENTO
+  FINALIZADO
+  CANCELAMENTO_SOLICITADO
+  CANCELADO
+  INTERVENCAO_ADMIN
+}
+enum OfferStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
+model User {
+  supabaseUserId     String? @unique
+  id                 String   @id @default(uuid())
+  email              String   @unique
+  name               String
+  passwordHash       String
+  role               Role
+  cityId             String?
+  establishmentId    String?
+  courierId          String?  @unique
+  mustChangePassword Boolean  @default(true)
+  active             Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  city               City? @relation(fields:[cityId], references:[id])
+  establishment      Establishment? @relation(fields:[establishmentId], references:[id])
+  courier            Courier? @relation(fields:[courierId], references:[id])
+  sessions           Session[]
+  @@index([cityId, role])
+}
+model Session {
+  authProvider String @default("local")
+  supabaseSessionId String? @db.Uuid
+  id          String   @id @default(uuid())
+  userId      String
+  refreshHash String
+  expiresAt   DateTime
+  revokedAt   DateTime?
+  createdAt   DateTime @default(now())
+  user        User @relation(fields:[userId], references:[id], onDelete:Cascade)
+  @@index([userId, expiresAt])
+  @@unique([userId, supabaseSessionId])
+}
+model City {
+  id             String @id @default(uuid())
+  name           String
+  state          String
+  active         Boolean @default(true)
+  createdAt      DateTime @default(now())
+  users          User[]
+  establishments Establishment[]
+  couriers       Courier[]
+  tariffs        Tariff[]
+  deliveries     DeliveryRequest[]
+  @@unique([name,state])
+}
+model Establishment {
+  id        String @id @default(uuid())
+  name      String
+  cityId    String
+  address   String
+  latitude  Float
+  longitude Float
+  active    Boolean @default(true)
+  createdAt DateTime @default(now())
+  city      City @relation(fields:[cityId], references:[id])
+  members   User[]
+  deliveries DeliveryRequest[]
+  quotes PriceQuote[]
+  preferences CourierPreference[]
+  blocks CourierBlock[]
+  @@index([cityId,active])
+}
+model Courier {
+  id         String @id @default(uuid())
+  name       String
+  cityId     String
+  status     CourierStatus @default(OFFLINE)
+  online     Boolean @default(false)
+  active     Boolean @default(true)
+  latitude   Float?
+  longitude  Float?
+  locationAt DateTime?
+  createdAt  DateTime @default(now())
+  city       City @relation(fields:[cityId], references:[id])
+  user       User?
+  deliveries DeliveryRequest[]
+  offers     DispatchOffer[]
+  preferences CourierPreference[]
+  blocks CourierBlock[]
+  @@index([cityId,status,locationAt])
+}
+model CourierPreference {
+  id String @id @default(uuid())
+  establishmentId String
+  courierId String
+  priority Int @default(0)
+  establishment Establishment @relation(fields:[establishmentId], references:[id], onDelete:Cascade)
+  courier Courier @relation(fields:[courierId], references:[id], onDelete:Cascade)
+  @@unique([establishmentId,courierId])
+}
+model CourierBlock {
+  id String @id @default(uuid())
+  establishmentId String
+  courierId String
+  reason String
+  createdAt DateTime @default(now())
+  establishment Establishment @relation(fields:[establishmentId], references:[id], onDelete:Cascade)
+  courier Courier @relation(fields:[courierId], references:[id], onDelete:Cascade)
+  @@unique([establishmentId,courierId])
+}
+model Tariff {
+  id String @id @default(uuid())
+  cityId String
+  baseCents Int
+  perKmCents Int
+  active Boolean @default(true)
+  createdAt DateTime @default(now())
+  city City @relation(fields:[cityId], references:[id])
+  @@index([cityId,active])
+}
+model PriceQuote {
+  id String @id @default(uuid())
+  establishmentId String
+  totalCents Int
+  distanceMeters Int
+  stops Json
+  pricingSnapshot Json
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  establishment Establishment @relation(fields:[establishmentId], references:[id])
+  delivery DeliveryRequest?
+  @@index([establishmentId,expiresAt])
+}
+model DeliveryRequest {
+  id String @id @default(uuid())
+  establishmentId String
+  cityId String
+  courierId String?
+  quoteId String @unique
+  status DeliveryStatus @default(SOLICITADO)
+  totalCents Int
+  pricingSnapshot Json
+  idempotencyKey String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  acceptedAt DateTime?
+  completedAt DateTime?
+  establishment Establishment @relation(fields:[establishmentId], references:[id])
+  city City @relation(fields:[cityId], references:[id])
+  courier Courier? @relation(fields:[courierId], references:[id])
+  quote PriceQuote @relation(fields:[quoteId], references:[id])
+  stops DeliveryStop[]
+  offers DispatchOffer[]
+  attempts DispatchAttempt[]
+  events DeliveryEvent[]
+  cancellations CancellationRequest[]
+  confirmations Confirmation[]
+  messages ChatMessage[]
+  @@unique([establishmentId,idempotencyKey])
+  @@index([cityId,status,createdAt])
+  @@index([courierId,status])
+}
+model DeliveryStop {
+  id String @id @default(uuid())
+  deliveryId String
+  sequence Int
+  address String
+  latitude Float
+  longitude Float
+  priceCents Int
+  completedAt DateTime?
+  delivery DeliveryRequest @relation(fields:[deliveryId],references:[id],onDelete:Cascade)
+  @@unique([deliveryId,sequence])
+}
+model DispatchOffer {
+  id String @id @default(uuid())
+  deliveryId String
+  courierId String
+  status OfferStatus @default(PENDING)
+  expiresAt DateTime
+  respondedAt DateTime?
+  createdAt DateTime @default(now())
+  delivery DeliveryRequest @relation(fields:[deliveryId],references:[id],onDelete:Cascade)
+  courier Courier @relation(fields:[courierId],references:[id])
+  @@index([status,expiresAt])
+  @@index([courierId,status])
+  @@unique([deliveryId,courierId])
+}
+model DispatchAttempt {
+  id String @id @default(uuid())
+  deliveryId String
+  courierId String?
+  outcome String
+  createdAt DateTime @default(now())
+  delivery DeliveryRequest @relation(fields:[deliveryId],references:[id],onDelete:Cascade)
+  @@index([deliveryId,createdAt])
+}
+model DeliveryEvent {
+  id String @id @default(uuid())
+  deliveryId String
+  actorId String?
+  type String
+  metadata Json?
+  createdAt DateTime @default(now())
+  delivery DeliveryRequest @relation(fields:[deliveryId],references:[id],onDelete:Cascade)
+  @@index([deliveryId,createdAt])
+}
+model CancellationRequest {
+  id String @id @default(uuid())
+  deliveryId String
+  requestedById String
+  requestedByRole Role
+  reason String
+  previousStatus DeliveryStatus
+  approvedAt DateTime?
+  approvedById String?
+  createdAt DateTime @default(now())
+  delivery DeliveryRequest @relation(fields:[deliveryId],references:[id],onDelete:Cascade)
+  @@index([deliveryId,approvedAt])
+}
+model Confirmation {
+  id String @id @default(uuid())
+  deliveryId String
+  userId String
+  role Role
+  stopCount Int
+  createdAt DateTime @default(now())
+  delivery DeliveryRequest @relation(fields:[deliveryId],references:[id],onDelete:Cascade)
+  @@unique([deliveryId,role])
+}
+model AuditLog {
+  id String @id @default(uuid())
+  actorId String?
+  action String
+  entityType String
+  entityId String
+  reason String?
+  metadata Json?
+  createdAt DateTime @default(now())
+  @@index([entityType,entityId,createdAt])
+}
+model ChatMessage {
+  id String @id @default(uuid())
+  deliveryId String
+  userId String
+  text String
+  createdAt DateTime @default(now())
+  delivery DeliveryRequest @relation(fields:[deliveryId],references:[id],onDelete:Cascade)
+  @@index([deliveryId,createdAt])
+}
+
+model SettingHead {
+  id        String @id @default(uuid())
+  scope     String
+  scopeId   String
+  key       String
+  value     Json
+  version   Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@unique([scope,scopeId,key])
+}
+model SettingRevision {
+  id                String @id @default(uuid())
+  scope             String
+  scopeId           String
+  key               String
+  value             Json
+  version           Int
+  actorId           String
+  reason            String
+  rollbackOfVersion Int?
+  createdAt         DateTime @default(now())
+  @@unique([scope,scopeId,key,version])
+  @@index([actorId,createdAt])
+}

@@ -1,0 +1,28 @@
+{
+  "name": "@ligeirinho/web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "NODE_USE_ENV_PROXY=1 next dev --hostname 0.0.0.0 --port 3000",
+    "build": "next build && node scripts/prepare-standalone.mjs",
+    "start": "node scripts/start-standalone.mjs",
+    "typecheck": "tsc --noEmit",
+    "lint": "tsc --noEmit",
+    "test": "vitest run",
+    "build:static": "node scripts/build-static.mjs",
+    "verify:static": "node scripts/verify-static.mjs"
+  },
+  "dependencies": {
+    "next": "^16.0.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "@supabase/ssr": "^0.8.0",
+    "@supabase/supabase-js": "^2.85.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "vitest": "^3.2.4",
+    "typescript": "^5.9.3"
+  }
+}

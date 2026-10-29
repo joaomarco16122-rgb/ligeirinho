@@ -1,0 +1,19 @@
+# Static build context is allowlisted: no application source or configuration.
+**
+!infra/
+!infra/docker/
+!infra/docker/site.Dockerfile
+!infra/nginx/
+!infra/nginx/site.conf
+!apps/
+!apps/web/
+!apps/web/out/
+!apps/web/out/**
+# Exclude accidental private files even if someone places them in an export.
+**/.env
+**/.env.*
+**/.npmrc
+**/*.jks
+**/*.keystore
+**/*service-account*.json
+**/*.log

@@ -1,0 +1,40 @@
+{
+  "expo": {
+    "name": "Ligeirinho Estabelecimento",
+    "slug": "ligeirinho-estabelecimento",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "platforms": [
+      "android"
+    ],
+    "newArchEnabled": true,
+    "android": {
+      "package": "br.com.ligeirinho.estabelecimento",
+      "versionCode": 1,
+      "permissions": [
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ]
+    },
+    "plugins": [
+      [
+        "expo-secure-store",
+        {
+          "configureAndroidBackup": true
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Permita que o Ligeirinho use sua localização durante o atendimento.",
+          "isAndroidBackgroundLocationEnabled": false,
+          "isAndroidForegroundServiceEnabled": false
+        }
+      ]
+    ],
+    "extra": {
+      "integrationMode": "development"
+    }
+  }
+}

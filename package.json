@@ -1,0 +1,54 @@
+{
+  "name": "ligeirinho",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@10.20.0",
+  "engines": {
+    "node": ">=22 <25"
+  },
+  "scripts": {
+    "dev": "node scripts/turbo.mjs run dev --filter=@ligeirinho/api --filter=@ligeirinho/web --parallel",
+    "build": "node scripts/turbo.mjs run build",
+    "typecheck": "node scripts/turbo.mjs run typecheck",
+    "lint": "eslint apps services packages scripts tests playwright.config.ts",
+    "test": "node scripts/turbo.mjs run test && node --test tests/operations.test.mjs tests/scripts/*.test.mjs",
+    "db:generate": "corepack pnpm --filter @ligeirinho/api db:generate",
+    "db:migrate": "corepack pnpm --filter @ligeirinho/api db:migrate",
+    "bootstrap": "corepack pnpm --filter @ligeirinho/api bootstrap",
+    "test:e2e": "playwright test",
+    "test:sql": "bash scripts/check-migration.sh",
+    "format:check": "prettier --check 'apps/**/*.{ts,tsx,css}' 'services/**/*.ts' 'packages/**/*.ts' 'scripts/*.mjs' playwright.config.ts eslint.config.mjs",
+    "dev:entregador": "corepack pnpm --filter @ligeirinho/entregador-android exec expo start --dev-client --port 8081",
+    "dev:estabelecimento": "corepack pnpm --filter @ligeirinho/estabelecimento-android exec expo start --dev-client --port 8082",
+    "montar": "node scripts/manage.mjs assemble",
+    "iniciar": "node scripts/manage.mjs start",
+    "parar": "node scripts/manage.mjs stop",
+    "diagnostico": "node scripts/manage.mjs doctor",
+    "test:ops": "node --test tests/operations.test.mjs tests/scripts/*.test.mjs",
+    "supabase:check": "node scripts/supabase-prepare.mjs --check",
+    "supabase:security-sql": "node scripts/supabase-prepare.mjs --security-sql",
+    "test:supabase:security": "RUN_POSTGRES_SECURITY_TEST=1 node --test tests/sql/supabase-security.test.mjs tests/sql/supabase-auth.test.mjs",
+    "test:web:auth": "RUN_WEB_AUTH_TEST=1 node --test tests/scripts/supabase-routes.test.mjs"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.64.1",
+    "@types/node": "^24.10.0",
+    "eslint": "^10.13.0",
+    "globals": "^16.5.0",
+    "prettier": "^3.9.10",
+    "turbo": "^2.6.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.72.1",
+    "vitest": "^3.2.4"
+  },
+  "pnpm": {
+    "overrides": {
+      "postcss": "^8.5.23",
+      "image-size": "^2.0.3",
+      "multer": "^2.5.0",
+      "deepmerge-ts": "^8.0.0",
+      "js-yaml": "^5.4.1"
+    }
+  }
+}
