@@ -47,8 +47,10 @@ RUN --mount=type=secret,id=proxy_ca \
 RUN mkdir -p /runtime/dist /runtime/prisma && \
     cp -a services/api/dist/. /runtime/dist/ && \
     cp -a services/api/prisma/. /runtime/prisma/ && \
-    cd services/api && \
-    node -e 'const fs=require("node:fs"),path=require("node:path");const source=require.resolve(".prisma/client/package.json",{paths:[require.resolve("@prisma/client/package.json")]});const target=require.resolve(".prisma/client/package.json",{paths:[require.resolve("/runtime/node_modules/@prisma/client/package.json")]});fs.cpSync(path.dirname(source),path.dirname(target),{recursive:true});' && \
+    generated_client="$(find /app -type f -path '*/.prisma/client/index.js' -print -quit)" && \
+    test -n "$generated_client" && \
+    mkdir -p /runtime/node_modules/.prisma/client && \
+    cp -a "$(dirname "$generated_client")/." /runtime/node_modules/.prisma/client/ && \
     node -e 'const client=require("/runtime/node_modules/@prisma/client");const db=new client.PrismaClient();db.$disconnect();require("/runtime/node_modules/argon2");'
 
 # One-shot migration container uses the CLI retained in the build stage.
