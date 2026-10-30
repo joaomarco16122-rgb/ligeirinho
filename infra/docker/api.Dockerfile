@@ -47,10 +47,7 @@ RUN --mount=type=secret,id=proxy_ca \
 RUN mkdir -p /runtime/dist /runtime/prisma && \
     cp -a services/api/dist/. /runtime/dist/ && \
     cp -a services/api/prisma/. /runtime/prisma/ && \
-    generated_client="$(find /app -type f -path '*/.prisma/client/index.js' -print -quit)" && \
-    test -n "$generated_client" && \
-    mkdir -p /runtime/node_modules/.prisma/client && \
-    cp -a "$(dirname "$generated_client")/." /runtime/node_modules/.prisma/client/ && \
+    node -e 'const fs=require("node:fs"),path=require("node:path");const origin=fs.realpathSync(require.resolve("@prisma/client/package.json",{paths:["/app/services/api"]}));const destination=fs.realpathSync(require.resolve("/runtime/node_modules/@prisma/client/package.json"));const source=path.resolve(path.dirname(origin),"../../.prisma/client");const target=path.resolve(path.dirname(destination),"../../.prisma/client");if(!fs.existsSync(path.join(source,"index.js")))throw new Error("Generated Prisma Client not found");fs.mkdirSync(target,{recursive:true});fs.cpSync(source,target,{recursive:true,force:true});' && \
     node -e 'const client=require("/runtime/node_modules/@prisma/client");const db=new client.PrismaClient();db.$disconnect();require("/runtime/node_modules/argon2");'
 
 # One-shot migration container uses the CLI retained in the build stage.
