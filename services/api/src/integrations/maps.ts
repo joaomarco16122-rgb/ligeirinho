@@ -29,6 +29,15 @@ export class StraightLineDevelopmentMaps implements MapsAdapter {
     return { distanceMeters, durationSeconds: null, source: 'STRAIGHT_LINE_DEVELOPMENT' };
   }
 }
+/** Homologação sem provedor de rotas: API disponível, cotações bloqueadas.
+ * Não calcula distâncias aproximadas nem emite preços sem fonte confiável.
+ */
+export class DisabledMaps implements MapsAdapter {
+  async route(input: Coordinate[]): Promise<RouteDistance> {
+    routePoints.parse(input);
+    throw new IntegrationUnavailable('Rotas desativadas');
+  }
+}
 const googleResponse = z.object({
   routes: z
     .array(
@@ -92,6 +101,7 @@ export function createMapsAdapter(env: NodeJS.ProcessEnv, transport?: HttpTransp
       );
     return new StraightLineDevelopmentMaps();
   }
+  if (provider === 'disabled') return new DisabledMaps();
   if (provider !== 'google') throw new Error('MAPS_PROVIDER inválido.');
   return new GoogleRoutesMaps(env.GOOGLE_MAPS_API_KEY ?? '', transport);
 }
