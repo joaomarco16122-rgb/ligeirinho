@@ -36,6 +36,18 @@ describe('rotas: fonte de preço explícita e requests do provedor', () => {
     expect(route.durationSeconds).toBeNull();
     expect(() => createMapsAdapter({ NODE_ENV: 'production' })).toThrow();
   });
+  it('modo de homologação sem mapa inicia em produção, mas nunca gera cotação', async () => {
+    const adapter = createMapsAdapter({ NODE_ENV: 'production', MAPS_PROVIDER: 'disabled' });
+    await expect(adapter.route([origin, destination])).rejects.toThrow(
+      'Integração Rotas desativadas indisponível',
+    );
+    await expect(
+      adapter.route([origin, { latitude: 99, longitude: -46.65 }]),
+    ).rejects.toThrow();
+    expect(() =>
+      createMapsAdapter({ NODE_ENV: 'production', MAPS_PROVIDER: 'invalid' }),
+    ).toThrow('MAPS_PROVIDER inválido');
+  });
   it('Google preserva origem, ordem dos destinos e máscara mínima', async () => {
     const middle = { latitude: -23.56, longitude: -46.64 };
     const transport = vi
