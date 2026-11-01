@@ -19,7 +19,9 @@ export class HealthController {
           maps:
             process.env.MAPS_PROVIDER === 'google'
               ? 'google-configured-unverified'
-              : 'development-straight-line',
+              : process.env.MAPS_PROVIDER === 'disabled'
+                ? 'disabled-quotes-unavailable'
+                : 'development-straight-line',
           push: 'disabled',
           payments: 'disabled',
         },
